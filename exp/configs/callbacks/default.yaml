@@ -1,12 +1,29 @@
 checkpoint:
   _target_: lightning.pytorch.callbacks.ModelCheckpoint
   dirpath: ${run_dir}/checkpoints
+  filename: "{step}-{SCOREQ/mean:.3f}"
+  auto_insert_metric_name: False
+  monitor: "SCOREQ/mean"
+  mode: max
+  save_top_k: 1
+  save_last: True
+
+checkpoint_fad:
+  _target_: lightning.pytorch.callbacks.ModelCheckpoint
+  dirpath: ${run_dir}/checkpoints
   filename: "{step}-{FAD/max_fad:.3f}"
   auto_insert_metric_name: False
   monitor: "FAD/max_fad"
   mode: min
   save_top_k: 1
-  save_last: True
+
+early_stopping_scoreq:
+  _target_: lightning.pytorch.callbacks.EarlyStopping
+  monitor: "SCOREQ/mean"
+  mode: max
+  patience: 100
+  min_delta: 0.0
+  verbose: True
 
 lr_monitor:
   _target_: lightning.pytorch.callbacks.LearningRateMonitor

@@ -12,6 +12,7 @@ class FMDiffAE(nn.Module):
         datashape,
         sigma_data=0.5,
         use_tanh=False,
+        delta=None,
     ):
         """
         Frequency-Masked Diffusion AutoEncoder.
@@ -30,7 +31,20 @@ class FMDiffAE(nn.Module):
         self.freq_mask = freq_mask
         self.datashape = datashape
         self.sigma_data = sigma_data
+        if delta is not None and delta <= 0:
+            raise ValueError("delta must be > 0 when quantization is enabled")
+        self.delta = delta
         self.use_tanh = use_tanh
+
+    def _quantize_latents(self, z):
+        if self.delta is None:
+            return z
+        if self.training:
+            # Pseudo quantization noise: epsilon ~ U(-delta/2, delta/2)
+            noise = (torch.rand_like(z) - 0.5) * self.delta
+            return z + noise
+        # Mid-rise scalar quantization for evaluation/inference
+        return (torch.floor(z / self.delta) + 0.5) * self.delta
 
     def forward(self, y, P_mean=-1.2, P_std=1.2):
         batch_size = y.shape[0]
@@ -40,6 +54,8 @@ class FMDiffAE(nn.Module):
         if self.use_tanh:
             z = torch.tanh(z)
 
+        z = self._quantize_latents(z)
+        
         # Apply Frequency Mask
         z = self.freq_mask(z)
 
@@ -85,6 +101,8 @@ class FMDiffAE(nn.Module):
         Assume data and latents (ignoring batch-like dims) have the same number of dims.
         Note: if self.use_tanh is true, and zs are passed instead of inputs,
             tanh must be applied before passing zs.
+        Note: if self.delta is not None, externally provided zs are assumed to
+            already include the same quantization effect used by the codec path.
         """
         if (inputs is None) == (zs is None):
             raise ValueError("Exactly one of `inputs` or `zs` must be provided")
@@ -100,6 +118,7 @@ class FMDiffAE(nn.Module):
             zs = self.encoder(inputs.view(-1, *self.datashape))
             if self.use_tanh:
                 zs = torch.tanh(zs)
+            zs = self._quantize_latents(zs)
 
         # Get shape, datatype, and device of zs
         z_shape = zs.shape[-len(self.datashape) :]

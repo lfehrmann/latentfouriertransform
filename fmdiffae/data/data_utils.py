@@ -26,7 +26,7 @@ def chunk_audio(
     audio_path,
     chunk_length_samples,
     fs_target=22050,
-    energy_threshold=0.003,
+    energy_threshold=0.0025,
 ):
     """
     Args:

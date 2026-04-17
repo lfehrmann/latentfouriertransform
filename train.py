@@ -15,7 +15,7 @@ from fmdiffae.lightning.lit_data_module import BaseDataModule
 )
 def main(config):
     seed_everything(config.seed, workers=True)
-    wandb.login(key="2ed9110b61c4bd8c0534e383f5373cd0cc7919af")
+    wandb.login()
 
     torch.set_float32_matmul_precision(config.float32_matmul_precision)
 

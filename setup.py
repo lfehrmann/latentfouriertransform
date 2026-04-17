@@ -13,6 +13,7 @@ setup(
         "hydra-core",
         "webdataset",
         "torchvggish",
+        "scoreq[gpu]",
         "bigvgan @ git+https://github.com/maswang32/BigVGAN.git",
         "wandb",
     ],
