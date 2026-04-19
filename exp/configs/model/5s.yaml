@@ -20,4 +20,5 @@ decoder:
 
 datashape: [80, 512]
 sigma_data: 0.5
-use_tanh: False
+use_tanh: True
+delta: 0.0650
