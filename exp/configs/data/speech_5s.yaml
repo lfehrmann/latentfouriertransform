@@ -1,19 +1,21 @@
 sample_rate: 22050
 batch_size: ${batch_size}
 
-ref_mean_path: /workspace/data/processed_nsc/valid_vggish_mean.npy
-ref_cov_path: /workspace/data/processed_nsc/valid_vggish_cov.npy
+root_dir: /workspace/data/processed_nsc
+
+ref_mean_path: ${data.root_dir}/valid_vggish_mean.npy
+ref_cov_path: ${data.root_dir}/valid_vggish_cov.npy
 
 train_dataset:
-  _target_: fmdiffae.data.data_utils.get_webdataset
+  _target_: latentft.data.data_utils.get_webdataset
   split: train
-  base_dir: /workspace/data/processed_nsc/
+  base_dir: ${data.root_dir}
   data_type: spec
   shuffle_size: 2048
 
 valid_dataset:
-  _target_: fmdiffae.data.data_utils.SingleTensorDataset
-  path: /workspace/data/processed_nsc/valid/valid_subset_spec.npy
+  _target_: latentft.data.data_utils.SingleTensorDataset
+  path: ${data.root_dir}/valid/valid_subset_spec.npy
 
 train_dataloader:
   _target_: webdataset.WebLoader
@@ -30,5 +32,5 @@ valid_dataloader:
   persistent_workers: False
 
 transform:
-  _target_: fmdiffae.transforms.bigvgan_transform.BigVGANTransform
+  _target_: latentft.transforms.bigvgan_transform.BigVGANTransform
   batch_size: 128
