@@ -98,11 +98,44 @@ class FMDiffAE(nn.Module):
         **guidance_fcn_kwargs,
     ):
         """
-        Assume data and latents (ignoring batch-like dims) have the same number of dims.
-        Note: if self.use_tanh is true, and zs are passed instead of inputs,
-            tanh must be applied before passing zs.
-        Note: if self.delta is not None, externally provided zs are assumed to
-            already include the same quantization effect used by the codec path.
+        EDM deterministic sampler (Karras et al. 2022), conditioned on latent vectors `zs`.
+
+        Pass exactly one of `inputs` (which gets encoded) or `zs` (already
+        encoded).
+
+        Frequency masking is optional: give band edges `lows`/`highs`,
+        or an explicit `fft_mask`.
+
+        To blend conditions, pass `zs`/`inputs` with shape
+        `(batch, num_to_blend, *datashape)` and `blend_weights` of shape
+        `(num_to_blend,)` or `(batch, num_to_blend)`
+
+        Blend weights are normalized to sum to 1 across the `num_to_blend` dimension.
+
+        Args:
+            cfg_scale: classifier-free guidance scale. If != 1, a null
+                latent is appended and mixed as
+                `cfg_scale * cond + (1 - cfg_scale) * uncond`.
+            init_noise: starting noise; defaults to `randn(...) * sigma_max`.
+                Ignored when `invert=True`.
+            num_steps, sigma_max, sigma_min, rho: Karras noise schedule.
+            heun: second-order Heun correction (skipped on the last step).
+            invert: run the ODE backward from `inputs` (sigma_min ->
+                sigma_max) to map input to corresponding noise
+            guidance_fcn: optional callable `(pred, **kwargs) -> scalar`.
+                Its gradient w.r.t. `pred` is added to the score, weighted
+                by `guidance_scale`. `guidance_mode` picks `pred = x0`
+                (denoised) or `pred = xt` (noisy).
+
+        Returns:
+            Sample of shape `(batch, *datashape)`.
+
+        Notes:
+            Data and latents (ignoring batch-like dims) share the same number of dims.
+            If ``use_tanh`` is true and ``zs`` are passed instead of ``inputs``,
+            apply ``tanh`` before passing ``zs``. If ``delta`` is not None,
+            externally provided ``zs`` must match the quantization used on the
+            training path.
         """
         if (inputs is None) == (zs is None):
             raise ValueError("Exactly one of `inputs` or `zs` must be provided")

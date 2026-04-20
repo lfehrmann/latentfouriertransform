@@ -3,7 +3,7 @@ ckpt_path: null
 load_last_if_avail: True
 
 # Save Directories
-run_dir: exp/runs/${name}
+run_dir: ${oc.env:EXP_DIR,./exp}/runs/${name}
 hydra:
   run:
     dir: ${run_dir}
@@ -49,7 +49,7 @@ optimizer:
 # Logger
 logger:
   _target_: lightning.pytorch.loggers.WandbLogger
-  project: fmdiffae_mtg_5s_full
+  project: ${oc.env:WANDB_PROJECT,latentft}
   name: ${name}
   save_dir: ${run_dir}
   id: null

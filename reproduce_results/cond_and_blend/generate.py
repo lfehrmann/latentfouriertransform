@@ -1,3 +1,4 @@
+import config  # noqa: F401  -- populates os.environ with user settings
 import os
 
 import numpy as np
@@ -6,10 +7,10 @@ import torchaudio
 
 import argparse
 
-from fmdiffae.arc.correlated_fft_mask import CorrelatedFFTMask
-from fmdiffae.lightning.lit_fmdiffae import FMDiffAEModule
-from fmdiffae.transforms.bigvgan_transform import BigVGANTransform
-from fmdiffae.utils.fad import get_embeddings_vggish
+from latentft.arc.correlated_fft_mask import CorrelatedFFTMask
+from latentft.lightning.lit_fmdiffae import FMDiffAEModule
+from latentft.transforms.bigvgan_transform import BigVGANTransform
+from latentft.utils.fad import get_embeddings_vggish
 from reproduce_results.baselines_and_ablations.unconditional import (
     spectral_guidance,
     dual_spectral_guidance,
@@ -17,6 +18,12 @@ from reproduce_results.baselines_and_ablations.unconditional import (
 from reproduce_results.baselines_and_ablations.cross_synthesis import (
     get_cross_synthesis,
 )
+
+TEST_DATA_DIR = os.path.join(
+    os.environ["PROCESSED_DATA_DIR"], "mtg-jamendo", "full-5s"
+)
+EXP_DIR = os.environ["EXP_DIR"]
+PRETRAINED_DIR = os.environ["PRETRAINED_DIR"]
 
 
 # Compute All Low_Highs
@@ -148,9 +155,9 @@ def main(low_highs, baseline_name, args):
 
     # Load Data
     if baseline_name in [
-        "fmdiffae_point",
-        "fmdiffae_unet",
-        "fmdiffae_bandpass",
+        "latentft_mlp",
+        "latentft_unet",
+        "latentft_bandpass",
         "guidance",
         "ilvr",
         "spectrogram",
@@ -202,21 +209,21 @@ def main(low_highs, baseline_name, args):
 
     # FMDiffAE Baseline
     if baseline_name in [
-        "fmdiffae_point",
-        "fmdiffae_unet",
-        "fmdiffae_bandpass",
+        "latentft_mlp",
+        "latentft_unet",
+        "latentft_bandpass",
         "abl_freq_masking",
         "abl_corr",
         "abl_log_scale",
         "abl_spec_encoder",
         "abl_dft",
     ]:
-        if baseline_name == "fmdiffae_point":
-            ckpt_path = args.fmdiffae_point_ckpt_path
-        elif baseline_name == "fmdiffae_unet":
-            ckpt_path = args.fmdiffae_unet_ckpt_path
-        elif baseline_name == "fmdiffae_bandpass":
-            ckpt_path = args.fmdiffae_bandpass_ckpt_path
+        if baseline_name == "latentft_mlp":
+            ckpt_path = args.latentft_mlp_ckpt_path
+        elif baseline_name == "latentft_unet":
+            ckpt_path = args.latentft_unet_ckpt_path
+        elif baseline_name == "latentft_bandpass":
+            ckpt_path = args.latentft_bandpass_ckpt_path
         elif baseline_name in ["abl_freq_masking", "abl_dft"]:
             ckpt_path = args.abl_freq_masking_ckpt_path
         elif baseline_name == "abl_corr":
@@ -699,38 +706,6 @@ def main(low_highs, baseline_name, args):
         print(f"{vggish_embeddings.shape=}", flush=True)
         torch.save(vggish_embeddings, os.path.join(save_dir, "vggish_embeddings.pt"))
 
-    if args.compute_BEATs_embeddings:
-        from beats.BEATs import BEATs, BEATsConfig
-
-        with torch.no_grad():
-            beats_ckpt = torch.load(
-                "/data/hai-res/ycda/gen/fmdiffae/reproduce_results/cond_and_blend/exp/diversity/BEATs_iter3_plus_AS2M.pt"
-            )
-            cfg = BEATsConfig(beats_ckpt["cfg"])
-            BEATs_model = BEATs(cfg)
-            BEATs_model.load_state_dict(beats_ckpt["model"])
-            BEATs_model.eval()
-            BEATs_model = BEATs_model.cuda()
-
-            batched_indices = torch.arange(args.num_examples).split(
-                args.beats_batch_size, dim=0
-            )
-            beats_embeddings = torch.zeros(args.num_examples, 296, 768)
-
-            for batch_indices in batched_indices:
-                batch_audios = audios[batch_indices].cuda()
-                batch_audios = torchaudio.functional.resample(
-                    batch_audios, 22050, 16000
-                )
-                padding_mask = torch.zeros_like(batch_audios).bool()
-                representations = BEATs_model.extract_features(
-                    batch_audios, padding_mask=padding_mask
-                )[0]
-                beats_embeddings[batch_indices] = representations.cpu()
-
-            print(f"{beats_embeddings.shape=}", flush=True)
-            torch.save(beats_embeddings, os.path.join(save_dir, "beats_embeddings.pt"))
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -741,59 +716,29 @@ if __name__ == "__main__":
     parser.add_argument("--low_high_idx", type=int, default=-1)
     parser.add_argument(
         "--exp_base_dir",
-        default="/data/hai-res/ycda/gen/fmdiffae/reproduce_results/cond_and_blend/exp/outputs",
+        default=f"{EXP_DIR}/reproduce_results/cond_and_blend/outputs",
     )
     parser.add_argument(
         "--spec_data_path",
-        default="/data/hai-res/ycda/processed-datasets/mtg-jamendo/full-5s_test/test_subset_spec.npy",
+        default=f"{TEST_DATA_DIR}/test_subset_spec.npy",
     )
     parser.add_argument(
         "--audio_data_path",
-        default="/data/hai-res/ycda/processed-datasets/mtg-jamendo/full-5s_test/test_subset_audio.npy",
+        default=f"{TEST_DATA_DIR}/test_subset_audio.npy",
     )
-    parser.add_argument(
-        "--fmdiffae_point_ckpt_path",
-        default="/data/hai-res/ycda/gen/fmdiffae/exp/runs/point-4gpu-5s-anneal/checkpoints/660000-0.586.ckpt",
-    )
-    parser.add_argument(
-        "--fmdiffae_unet_ckpt_path",
-        default="/data/hai-res/ycda/gen/fmdiffae/exp/runs/unet-5s-4gpu-anneal-retry-5/checkpoints/658500-0.802.ckpt",
-    )
-    parser.add_argument(
-        "--uncond_ckpt_path",
-        default="/data/hai-res/ycda/gen/fmdiffae/exp/runs/uncondo_anneal_retry/checkpoints/525000-0.398.ckpt",
-    )
-    parser.add_argument(
-        "--abl_freq_masking_ckpt_path",
-        default="/data/hai-res/ycda/gen/fmdiffae/exp/runs/ablate_mask/checkpoints/3000-8.068.ckpt",
-    )
-    parser.add_argument(
-        "--abl_corr_ckpt_path",
-        default="/data/hai-res/ycda/gen/fmdiffae/exp/runs/ablate_corr/checkpoints/102000-4.189.ckpt",
-    )
-    parser.add_argument(
-        "--abl_log_scale_ckpt_path",
-        default="/data/hai-res/ycda/gen/fmdiffae/exp/runs/ablate_logscale_retry/checkpoints/270000-1.378.ckpt",
-    )
-    parser.add_argument(
-        "--abl_spec_encoder_ckpt_path",
-        default="/data/hai-res/ycda/gen/fmdiffae/exp/runs/id-4gpu-5s/checkpoints/312000-0.745.ckpt",
-    )
-    parser.add_argument(
-        "--abl_no_encoder_ckpt_path",
-        default="/data/hai-res/ycda/gen/fmdiffae/exp/runs/no_encoder_retry_2/checkpoints/102000-0.658.ckpt",
-    )
-    parser.add_argument(
-        "--fmdiffae_bandpass_ckpt_path",
-        default="/data/hai-res/ycda/gen/fmdiffae/exp/runs/bandpass3compiled_retry_2/checkpoints/30000-2.580.ckpt",
-    )
-    parser.add_argument(
-        "--dac_frontend_ckpt_path",
-        default="/data/hai-res/ycda/gen/fmdiffae/exp/runs/dac_encoder3_128_3/checkpoints/120000-0.719.ckpt",
-    )
+    parser.add_argument("--latentft_mlp_ckpt_path")
+    parser.add_argument("--latentft_unet_ckpt_path")
+    parser.add_argument("--uncond_ckpt_path")
+    parser.add_argument("--abl_freq_masking_ckpt_path")
+    parser.add_argument("--abl_corr_ckpt_path")
+    parser.add_argument("--abl_log_scale_ckpt_path")
+    parser.add_argument("--abl_spec_encoder_ckpt_path")
+    parser.add_argument("--abl_no_encoder_ckpt_path")
+    parser.add_argument("--latentft_bandpass_ckpt_path")
+    parser.add_argument("--dac_frontend_ckpt_path")
     parser.add_argument(
         "--rave_path",
-        default="/data/hai-res/ycda/gen/fmdiffae/exp/pretrained_checkpoints/rave_pretrained_musicnet.ts",
+        default=f"{PRETRAINED_DIR}/rave_pretrained_musicnet.ts",
     )
 
 
@@ -801,12 +746,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--skip_compute_vggish_embeddings", action="store_true", default=False
     )
-    parser.add_argument(
-        "--compute_BEATs_embeddings", action="store_true", default=False
-    )
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--transform_batch_size", type=int, default=128)
-    parser.add_argument("--beats_batch_size", type=int, default=128)
     parser.add_argument("--vampnet_batch_size", type=int, default=128)
     parser.add_argument("--cfg_scale", type=float, default=2.0)
     parser.add_argument("--num_steps", type=int, default=100)
@@ -820,15 +761,15 @@ if __name__ == "__main__":
             "dac",
             "guidance",
             "ilvr",
-            "fmdiffae_point",
-            "fmdiffae_unet",
+            "latentft_mlp",
+            "latentft_unet",
             "spectrogram",
             "unconditional",
             "vampnet",
         ]
     elif args.baseline_name == "ablations":
         list_of_baselines = [
-            "fmdiffae_point",
+            "latentft_mlp",
             "abl_freq_masking",
             "abl_corr",
             "abl_log_scale",
@@ -836,7 +777,7 @@ if __name__ == "__main__":
             "abl_no_encoder",
         ]
     elif args.baseline_name == "rebuttals":
-        list_of_baselines = ["fmdiffae_bandpass", "dac_frontend", "abl_dft", "rave"]
+        list_of_baselines = ["latentft_bandpass", "dac_frontend", "abl_dft", "rave"]
     else:
         list_of_baselines = [args.baseline_name]
 

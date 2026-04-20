@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="fmdiffae",
+    name="latentft",
     version="0.2",
     packages=find_packages(),
     install_requires=[
@@ -22,7 +22,6 @@ setup(
         "reproduce_results": [
             "librosa",
             "descript-audio-codec",
-            "beats @ git+https://github.com/maswang32/BEATs.git",
             "mir_eval",
             "essentia",
         ]

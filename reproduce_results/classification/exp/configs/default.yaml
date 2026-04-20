@@ -2,14 +2,14 @@ name: debug_run
 ckpt_path: null
 
 # Save Directories
-run_dir: exp/runs/${name}
+run_dir: ${oc.env:EXP_DIR,./exp}/runs/${name}
 hydra:
   run:
     dir: ${run_dir}
 
 # Imports
 defaults:
-  - data: irmas_5s
+  - data: gtzan_5s
   - model: linear_probe
   - _self_
 
@@ -41,7 +41,7 @@ optimizer:
 # Logger
 logger:
   _target_: lightning.pytorch.loggers.WandbLogger
-  project: instrument_classification
+  project: ${oc.env:WANDB_PROJECT,latentft-classification}
   name: ${name}
   save_dir: ${run_dir}
   id: null

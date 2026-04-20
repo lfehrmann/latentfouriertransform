@@ -1,3 +1,4 @@
+import config  # noqa: F401  -- populates os.environ with user settings
 import numpy as np
 import torch
 
@@ -8,14 +9,16 @@ import librosa.onset as O
 import os
 import json
 import argparse
-from glob import glob
-from tqdm import tqdm
 
-from fmdiffae.arc.correlated_fft_mask import CorrelatedFFTMask
-from fmdiffae.utils.fad import compute_fad_from_embeddings
+from latentft.arc.correlated_fft_mask import CorrelatedFFTMask
+from latentft.utils.fad import compute_fad_from_embeddings
 from reproduce_results.cond_and_blend.generate import (
     get_all_low_highs,
     get_band_identifier,
+)
+
+TEST_DATA_DIR = os.path.join(
+    os.environ["PROCESSED_DATA_DIR"], "mtg-jamendo", "full-5s"
 )
 
 
@@ -180,8 +183,8 @@ class Aggregator:
         self,
         exp_dir,
         num_examples=1024,
-        ref_audios_path="/data/hai-res/ycda/processed-datasets/mtg-jamendo/full-5s_test/test_subset_audio.npy",
-        ref_emb_path="/data/hai-res/ycda/processed-datasets/mtg-jamendo/full-5s_test/test_vggish_embeddings.npy",
+        ref_audios_path=f"{TEST_DATA_DIR}/test_subset_audio.npy",
+        ref_emb_path=f"{TEST_DATA_DIR}/test_vggish_embeddings.npy",
         n_fft=1024,
         hop_length=256,
         win_length=1024,
@@ -299,8 +302,8 @@ class Aggregator:
             "dac",
             "guidance",
             "ilvr",
-            "fmdiffae_point",
-            "fmdiffae_unet",
+            "latentft_mlp",
+            "latentft_unet",
             "spectrogram",
             "unconditional",
             "vampnet",
@@ -340,42 +343,6 @@ class Aggregator:
         return all_results
 
 
-def compute_MSD(x):
-    """
-    X: N, D
-    This implementation takes up more memory, but is more numerically accurate
-    Than the version that uses the gram matrix.
-    """
-    N = x.shape[0]
-    sq_distances = torch.sum((x[:, None, :] - x[None, :, :]) ** 2, axis=-1)
-    mask = ~torch.eye(N, dtype=torch.bool)
-    return sq_distances[mask].mean()
-
-
-def compute_beat_embeddings_msd(beat_embeddings, num_trials, num_songs):
-    beat_embeddings = beat_embeddings.reshape(num_trials, num_songs, -1)
-    total = 0
-    for i in tqdm(range(num_songs)):
-        total += compute_MSD(beat_embeddings[:, i])
-    return total / num_songs
-
-
-def compute_diversity_metric(
-    baseline_dir,
-    num_trials,
-    num_songs,
-    file_name="beats_embeddings.pt",
-):
-    paths = glob(os.path.join(baseline_dir, "*", file_name))
-    num_paths = len(paths)
-
-    total = 0
-    for path in paths:
-        beats_embeddings = torch.load(path)
-        total += compute_beat_embeddings_msd(beats_embeddings, num_trials, num_songs)
-    return total / num_paths
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("exp_dir")
@@ -386,11 +353,11 @@ if __name__ == "__main__":
     parser.add_argument("--num_examples", type=int, default=1024)
     parser.add_argument(
         "--ref_audios_path",
-        default="/data/hai-res/ycda/processed-datasets/mtg-jamendo/full-5s_test/test_subset_audio.npy",
+        default=f"{TEST_DATA_DIR}/test_subset_audio.npy",
     )
     parser.add_argument(
         "--ref_emb_path",
-        default="/data/hai-res/ycda/processed-datasets/mtg-jamendo/full-5s_test/test_vggish_embeddings.npy",
+        default=f"{TEST_DATA_DIR}/test_vggish_embeddings.npy",
     )
     parser.add_argument("--n_fft", type=int, default=1024)
     parser.add_argument("--hop_length", type=int, default=256)
@@ -424,15 +391,15 @@ if __name__ == "__main__":
             "dac",
             "guidance",
             "ilvr",
-            "fmdiffae_point",
-            "fmdiffae_unet",
+            "latentft_mlp",
+            "latentft_unet",
             "spectrogram",
             "unconditional",
             "vampnet",
         ]
     elif args.baseline_name == "ablations":
         list_of_baselines = [
-            "fmdiffae_point",
+            "latentft_mlp",
             "abl_freq_masking",
             "abl_corr",
             "abl_log_scale",
