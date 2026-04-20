@@ -5,7 +5,7 @@ setup(
     version="0.2",
     packages=find_packages(),
     install_requires=[
-        "numpy",
+        "numpy>=1.22",
         "tqdm",
         "torch",
         "torchaudio",
@@ -13,11 +13,12 @@ setup(
         "hydra-core",
         "webdataset",
         "torchvggish",
-        "scoreq[gpu]",
+        "huggingface_hub>=0.21,<0.25",
         "bigvgan @ git+https://github.com/maswang32/BigVGAN.git",
         "wandb",
     ],
     extras_require={
+        "scoreq": ["scoreq[gpu]"],
         "reproduce_results": [
             "librosa",
             "descript-audio-codec",

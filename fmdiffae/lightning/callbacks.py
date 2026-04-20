@@ -258,8 +258,9 @@ class FADAndReconstruction(Callback):
             **{name: fad for name, fad in zip(fad_names, fads)},
             **{name: mse for name, mse in zip(mse_names, mses)},
         }
-        trainer.logger.experiment.log(
-            metrics,
-            step=trainer.global_step,
-        )
+        if rank == 0:
+            trainer.logger.experiment.log(
+                metrics,
+                step=trainer.global_step,
+            )
         pl_module.log("FAD/max_fad", max(fads), sync_dist=True)
