@@ -13,6 +13,8 @@ setup(
         "hydra-core",
         "webdataset",
         "torchvggish",
+        # BigVGAN.from_pretrained is incompatible with huggingface_hub>=0.25
+        "huggingface_hub>=0.21,<0.25",
         "bigvgan @ git+https://github.com/maswang32/BigVGAN.git",
         "wandb",
     ],
