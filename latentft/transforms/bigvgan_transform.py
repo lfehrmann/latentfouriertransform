@@ -15,7 +15,7 @@ class BigVGANTransform:
         model_name="bigvgan_v2_22khz_80band_256x",
         load_model_on_init=True,
         batch_size=256,
-        max_log_spec_value=6.425721,
+        max_log_spec_value=6.645698,
         min_log_spec_value=-11.5129,  # torch.log(1e-5)
     ):
         self.model_name = model_name

@@ -20,12 +20,12 @@ reproduce_results/sweep/exp
 reproduce_results/cond_and_blend/exp
 
 # Utilities for Speech Enhancement
-fmdiffae/data/build_valid_subset_spec_from_tar.py
-fmdiffae/data/compute_max_log_mel.py
-fmdiffae/data/compute_vggish_stats.py
-fmdiffae/data/export_bigvgan_dataset.py
-fmdiffae/data/prepare_nsc_dataset.py
-fmdiffae/data/run_datasets.sh
+latentft/data/build_valid_subset_spec_from_tar.py
+latentft/data/compute_max_log_mel.py
+latentft/data/compute_vggish_stats.py
+latentft/data/export_bigvgan_dataset.py
+latentft/data/prepare_nsc_dataset.py
+latentft/data/prepare_all_nsc.sh
 
 # MacOS
 .DS_Store
