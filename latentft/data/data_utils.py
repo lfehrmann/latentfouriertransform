@@ -27,6 +27,8 @@ def chunk_audio(
     chunk_length_samples,
     fs_target=22050,
     energy_threshold=0.0025,
+    pad_short_files=True,
+    min_samples_for_padding=None,
 ):
     """
     Args:
@@ -34,8 +36,18 @@ def chunk_audio(
         chunk_length_samples (int): length of chunks in samples
         fs_target (float): rate to resample to, if needed
         energy_threshold (float):
-            For chunks of length 65536, fs=22050, 0.003 is a safe threshold.
-            Below 0.002 we get incomplete clips.
+            RMS^2 threshold after per-chunk demeaning. For 131072-sample chunks at
+            fs=22050, ~0.003 is a reasonable starting point for music; speech may
+            need tuning. When a file was shorter than one chunk and zero-padded
+            to length ``chunk_length_samples``, energy is evaluated only on the
+            original (unpadded) prefix so padding does not push the chunk below
+            the threshold.
+        pad_short_files (bool): If True (default), waveforms shorter than one
+            chunk are right-padded with zeros to exactly one chunk before the
+            usual demean / split pipeline. Longer files are unchanged. Set False
+            to drop files shorter than ``chunk_length_samples`` (legacy behavior).
+        min_samples_for_padding (int or None): If set, do not emit a padded chunk
+            unless the resampled waveform has at least this many samples.
 
     Returns:
         Tensor (N, chunk_length_samples): audio chunks
@@ -45,6 +57,28 @@ def chunk_audio(
     # Resample if needed
     if fs_target is not None and fs_orig != fs_target:
         x = resample(x, fs_orig=fs_orig, fs_target=fs_target)
+
+    length = x.shape[-1]
+    orig_len_for_energy = None
+
+    if length == 0:
+        return torch.empty(
+            0, chunk_length_samples, dtype=x.dtype, device=x.device
+        )
+
+    if min_samples_for_padding is not None and length < min_samples_for_padding:
+        return torch.empty(
+            0, chunk_length_samples, dtype=x.dtype, device=x.device
+        )
+
+    if pad_short_files and length < chunk_length_samples:
+        orig_len_for_energy = length
+        x = torch.nn.functional.pad(
+            x,
+            (0, chunk_length_samples - length),
+            mode="constant",
+            value=0.0,
+        )
 
     # Demean and normalize
     x = x - torch.mean(x, dim=-1, keepdim=True)
@@ -58,8 +92,12 @@ def chunk_audio(
     # Demean chunks
     chunks = chunks - torch.mean(chunks, dim=-1, keepdim=True)
 
-    # Threshold based on energy
-    chunk_energies = torch.mean(chunks**2, dim=-1)
+    # Threshold based on energy (speech portion only when this row came from padding)
+    if orig_len_for_energy is not None:
+        prefix = min(orig_len_for_energy, chunk_length_samples)
+        chunk_energies = torch.mean(chunks[:, :prefix] ** 2, dim=-1)
+    else:
+        chunk_energies = torch.mean(chunks**2, dim=-1)
     chunks = chunks[chunk_energies >= energy_threshold]
 
     # Return Normalized Chunks
@@ -70,7 +108,7 @@ def save_webdataset(
     audio_paths,
     audio_names,
     save_dir,
-    maxcount,  # for 256 x 80 specs + 65536 audio, 8192 is 2.8 GB/shard
+    maxcount,  # for 256 x 80 specs + 131072 audio, 8192 is ~2.8 GB/shard
     shuffle=True,
     random_seed=7,
     pattern="data-%06d.tar",
