@@ -72,7 +72,7 @@ def main() -> None:
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
 
     lit = FMDiffAEModule.load_from_checkpoint(
-        args.ckpt_path, map_location="cpu", strict=False
+        args.ckpt_path, map_location="cpu", strict=True
     )
     model = (
         lit.ema_model.module
