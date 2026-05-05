@@ -1,5 +1,6 @@
 name: debug_run
 ckpt_path: null
+resume_weights_only: False
 load_last_if_avail: True
 
 # Save Directories

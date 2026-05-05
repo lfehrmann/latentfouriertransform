@@ -31,6 +31,19 @@ def main(config):
     data_module = BaseDataModule(config.data)
     lit_module = FMDiffAEModule(config)
 
+    # Optional: load only model weights from checkpoint while keeping
+    # optimizer/scheduler states fresh (no Lightning state resume).
+    if ckpt_path is not None and config.resume_weights_only:
+        ckpt = torch.load(ckpt_path, map_location="cpu")
+        missing, unexpected = lit_module.load_state_dict(
+            ckpt["state_dict"], strict=config.strict_loading
+        )
+        print(
+            "Loaded model weights only from checkpoint. "
+            f"Missing keys: {len(missing)}, unexpected keys: {len(unexpected)}"
+        )
+        ckpt_path = None
+
     if config.compile:
         lit_module = torch.compile(lit_module)
 
