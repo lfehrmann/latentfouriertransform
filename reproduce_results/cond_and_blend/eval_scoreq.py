@@ -51,6 +51,15 @@ def main() -> None:
     parser.add_argument("--scoreq_domain", type=str, default="natural")
     parser.add_argument("--sample_rate", type=int, default=22050)
     parser.add_argument("--device", type=str, default="cuda")
+    parser.add_argument(
+        "--save_wavs_dir",
+        type=str,
+        default=None,
+        help=(
+            "Optional directory to persist generated/reference WAV pairs "
+            "(useful for VISQOL). If omitted, temporary WAVs are deleted."
+        ),
+    )
     args = parser.parse_args()
 
     try:
@@ -99,13 +108,24 @@ def main() -> None:
 
     predictor = scoreq.Scoreq(data_domain=args.scoreq_domain, mode="ref")
     distances: list[float] = []
-    with tempfile.TemporaryDirectory() as tmpdir:
+    if args.save_wavs_dir is None:
+        tmpdir_cm = tempfile.TemporaryDirectory()
+        tmpdir = tmpdir_cm.__enter__()
+    else:
+        tmpdir_cm = None
+        tmpdir = os.path.abspath(args.save_wavs_dir)
+        os.makedirs(tmpdir, exist_ok=True)
+        print(f"Saving WAV pairs to {tmpdir}")
+    try:
         for i, (gen_audio, ref_audio) in enumerate(zip(gen_audios, ref_audios)):
             gen_path = os.path.join(tmpdir, f"gen_{i:04d}.wav")
             ref_path = os.path.join(tmpdir, f"ref_{i:04d}.wav")
             torchaudio.save(gen_path, gen_audio.unsqueeze(0), args.sample_rate)
             torchaudio.save(ref_path, ref_audio.unsqueeze(0), args.sample_rate)
             distances.append(float(predictor.predict(test_path=gen_path, ref_path=ref_path)))
+    finally:
+        if tmpdir_cm is not None:
+            tmpdir_cm.__exit__(None, None, None)
 
     out_path = os.path.abspath(args.out_json)
     os.makedirs(os.path.dirname(out_path), exist_ok=True)

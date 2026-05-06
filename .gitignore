@@ -27,6 +27,7 @@ latentft/data/export_bigvgan_dataset.py
 latentft/data/prepare_nsc_dataset.py
 latentft/data/prepare_all_nsc.sh
 latentft/data/build_scoreq_indices_from_filenames.py
+reproduce_results/cond_and_blend/sweep_rate_quality.py
 
 # MacOS
 .DS_Store
